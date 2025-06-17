@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
+using System.IO;
 using System.IO.BACnet;
 using System.Linq;
 using System.Net;
@@ -146,16 +147,38 @@ namespace AasxPluginAssetInterfaceDescription
                     {
                         try
                         {
-                            float staticValue = 29f;
-                            BacnetValue[] writeValue = new BacnetValue[] { new BacnetValue(staticValue) };
-                            bool result = Client.WritePropertyRequest(deviceAddress, objectId, propertyId, writeValue);
+                            if (itm.MapOutputItems != null)
+                                foreach (var moi in itm.MapOutputItems)
+                                {
+                                    // valid?
+                                    if (moi?.MapRelation?.Second == null)
+                                        continue;
 
-                            if (result)
-                            {
-                                itm.Value = staticValue.ToString();
-                                NotifyOutputItems(itm, itm.Value);
-                                res++;
-                            }
+                                    // For literal payloads
+                                    else if (moi.MapRelation.SecondHint is Aas.Property prop)
+                                    {
+                                        // set here
+                                        float staticValue = float.Parse(prop.Value);
+                                        BacnetValue[] writeValue = new BacnetValue[] { new BacnetValue(staticValue) };
+                                        bool result = Client.WritePropertyRequest(deviceAddress, objectId, propertyId, writeValue);
+                                        if (result)
+                                        {
+                                            itm.Value = writeValue[0].Value?.ToString();
+                                            NotifyOutputItems(itm, itm.Value);
+                                            res++;
+                                        }
+                                    }
+                                }
+                            //float staticValue = float.Parse(itm.Value);
+                            //BacnetValue[] writeValue = new BacnetValue[] { new BacnetValue(staticValue) };
+                            //bool result = Client.WritePropertyRequest(deviceAddress, objectId, propertyId, writeValue);
+                            //if (result)
+                            //{
+                                //itm.Value = staticValue.ToString();
+                                //NotifyOutputItems(itm, itm.Value);
+                               // res++;
+                            //}
+
                         }
                         catch (Exception ex)
                         {
