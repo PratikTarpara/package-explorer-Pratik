@@ -353,6 +353,10 @@ namespace AasxPredefinedConcepts.AssetInterfacesDescription
         [AasConcept(Cd = "https://www.w3.org/2019/wot/json-schema#default", Card = AasxPredefinedCardinality.ZeroToOne)]
         public string Default;
 
+        //For Write Operation test. Not part of the main AID specification
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/json-schema#readOnly", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string readOnly = null;
+
         [AasConcept(Cd = "https://schema.org/unitCode", Card = AasxPredefinedCardinality.ZeroToOne)]
         public string Unit;
 

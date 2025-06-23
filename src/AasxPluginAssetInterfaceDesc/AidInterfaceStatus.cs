@@ -81,6 +81,12 @@ namespace AasxPluginAssetInterfaceDescription
         public string Value = "";
 
         /// <summary>
+        /// For Write Operation test. Not part of the main AID specification
+        /// String data for if the datapoint operation is read only.
+        /// </summary>
+        public string readOnly = null;
+
+        /// <summary>
         /// Link to entity (property, action, event).
         /// </summary>
         public object Tag = null;
@@ -861,6 +867,8 @@ namespace AasxPluginAssetInterfaceDescription
                             DisplayName = AdminShellUtil.TakeFirstContent(
                                 propName.Title, propName.Key, propName.__Info__?.Referable?.IdShort),
                             FormData = propName.Forms,
+                            ///// For Write Operation test. Not part of the main AID specification
+                            readOnly = propName.readOnly,
                             Value = "???"
                         };
 
