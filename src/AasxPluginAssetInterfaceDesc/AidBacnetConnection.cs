@@ -80,7 +80,7 @@ namespace AasxPluginAssetInterfaceDescription
 
         override public async Task<int> UpdateItemValueAsync(AidIfxItemStatus item)
         {
-            var items = new List<AidIfxItemStatus> { item }; // Add your items to this list
+            var items = new List<AidIfxItemStatus> { item }; 
 
             int res = 0;
 
@@ -98,7 +98,7 @@ namespace AasxPluginAssetInterfaceDescription
 
                 try
                 {
-                    // Extract device ID from the URI or other source based on your implementation
+                    // Extract device ID from the URI 
                     uint deviceId = uint.Parse(TargetUri.Host);
 
                     BacnetAddress deviceAddress;
@@ -147,6 +147,10 @@ namespace AasxPluginAssetInterfaceDescription
                     {
                         try
                         {
+                            IList<BacnetValue> values_w = new List<BacnetValue>();
+                            bool result_R = Client.ReadPropertyRequest(deviceAddress, objectId, propertyId, out values_w);
+                            
+
                             if (itm.MapOutputItems != null)
                                 foreach (var moi in itm.MapOutputItems)
                                 {
@@ -159,32 +163,27 @@ namespace AasxPluginAssetInterfaceDescription
                                     {
                                         // set here
                                         float staticValue = float.Parse(prop.Value);
-                                        BacnetValue[] writeValue = new BacnetValue[] { new BacnetValue(staticValue) };
-                                        bool result = Client.WritePropertyRequest(deviceAddress, objectId, propertyId, writeValue);
-                                        if (result)
+                                        float currentValue = Convert.ToSingle(values_w[0].Value);  
+                                        if (currentValue != staticValue)
                                         {
-                                            itm.Value = writeValue[0].Value?.ToString();
-                                            NotifyOutputItems(itm, itm.Value);
-                                            res++;
+                                            BacnetValue[] writeValue = new BacnetValue[] { new BacnetValue(staticValue) };
+                                            bool result_W = Client.WritePropertyRequest(deviceAddress, objectId, propertyId, writeValue);
+                                            if (result_W)
+                                            {
+                                                itm.Value = writeValue[0].Value?.ToString();
+                                                NotifyOutputItems(itm, itm.Value);
+                                                result_W = false;
+                                                res++;
+                                            }
                                         }
                                     }
                                 }
-                            //float staticValue = float.Parse(itm.Value);
-                            //BacnetValue[] writeValue = new BacnetValue[] { new BacnetValue(staticValue) };
-                            //bool result = Client.WritePropertyRequest(deviceAddress, objectId, propertyId, writeValue);
-                            //if (result)
-                            //{
-                                //itm.Value = staticValue.ToString();
-                                //NotifyOutputItems(itm, itm.Value);
-                               // res++;
-                            //}
-
                         }
                         catch (Exception ex)
                         {
                             Console.WriteLine($"Exception during write: {ex.Message}");
                         }
-                    }
+                    }                    
                 }
                 catch (Exception ex)
                 {
