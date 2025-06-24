@@ -103,7 +103,7 @@ namespace AasxPluginAssetInterfaceDescription
         public AnyUiUIElement RenderedUiElement = null;
     }
 
-    public enum AidInterfaceTechnology { HTTP, Modbus, MQTT, OPCUA, BACNET }
+    public enum AidInterfaceTechnology { BACNET, HTTP, Modbus, MQTT, OPCUA }
 
     public class AidInterfaceStatus
     {
@@ -508,11 +508,11 @@ namespace AasxPluginAssetInterfaceDescription
 
             if (adoptUseFlags)
             {
+                UseTech[(int)AidInterfaceTechnology.BACNET] = optRec.UseBacnet;
                 UseTech[(int)AidInterfaceTechnology.HTTP] = optRec.UseHttp;
                 UseTech[(int)AidInterfaceTechnology.Modbus] = optRec.UseModbus;
                 UseTech[(int)AidInterfaceTechnology.MQTT] = optRec.UseMqtt;
                 UseTech[(int)AidInterfaceTechnology.OPCUA] = optRec.UseOpcUa;
-                UseTech[(int)AidInterfaceTechnology.BACNET] = optRec.UseBacnet;
             }
         }
 
@@ -534,6 +534,9 @@ namespace AasxPluginAssetInterfaceDescription
             AidBaseConnection conn = null;
             switch (ifcStatus.Technology)
             {
+                case AidInterfaceTechnology.BACNET:
+                    conn = BacnetConnections.GetOrCreate(endpointBase, log);
+                    break;
                 case AidInterfaceTechnology.HTTP:
                     conn = HttpConnections.GetOrCreate(endpointBase, log);
                     break;
@@ -548,10 +551,6 @@ namespace AasxPluginAssetInterfaceDescription
 
                 case AidInterfaceTechnology.OPCUA:
                     conn = OpcUaConnections.GetOrCreate(endpointBase, log);
-                    break;
-
-                case AidInterfaceTechnology.BACNET:
-                    conn = BacnetConnections.GetOrCreate(endpointBase, log);
                     break;
 
             }
@@ -833,10 +832,10 @@ namespace AasxPluginAssetInterfaceDescription
             foreach (var tech in AdminShellUtil.GetEnumValues<AidInterfaceTechnology>())
             {
                 var ifxs = dataAid?.InterfaceHTTP;
+                if (tech == AidInterfaceTechnology.BACNET) ifxs = dataAid?.InterfaceBACNET;
                 if (tech == AidInterfaceTechnology.Modbus) ifxs = dataAid?.InterfaceMODBUS;
                 if (tech == AidInterfaceTechnology.MQTT) ifxs = dataAid?.InterfaceMQTT;
                 if (tech == AidInterfaceTechnology.OPCUA) ifxs = dataAid?.InterfaceOPCUA;
-                if (tech == AidInterfaceTechnology.BACNET) ifxs = dataAid?.InterfaceBACNET;
                 if (ifxs == null || ifxs.Count < 1)
                     continue;
                 foreach (var ifx in ifxs)

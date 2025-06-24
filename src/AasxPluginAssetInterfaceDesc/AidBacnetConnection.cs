@@ -1,29 +1,8 @@
-﻿using AasxIntegrationBase;
-using AasxIntegrationBase.AdminShellEvents;
-using AasxPluginAssetInterfaceDescription;
-using AasxPredefinedConcepts;
-using AasxPredefinedConcepts.AssetInterfacesDescription;
-using AdminShellNS;
-using AdminShellNS.DiaryData;
-using Extensions;
-using FluentModbus;
-using Newtonsoft.Json.Linq;
+﻿using AdminShellNS;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Drawing;
-using System.Globalization;
-using System.IO;
 using System.IO.BACnet;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Web.Services.Description;
-using Workstation.ServiceModel.Ua;
 using Aas = AasCore.Aas3_0;
 
 namespace AasxPluginAssetInterfaceDescription
@@ -49,7 +28,7 @@ namespace AasxPluginAssetInterfaceDescription
                 await Task.Yield();
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Client = null;
                 return false;
@@ -64,7 +43,6 @@ namespace AasxPluginAssetInterfaceDescription
 
         override public bool IsConnected()
         {
-            // nothing to do, this simple bacnet connection is stateless
             return Client != null;
         }
 
@@ -128,8 +106,9 @@ namespace AasxPluginAssetInterfaceDescription
                             NotifyOutputItems(item, item.Value);
                             res = 1;
                         }
+                        values.Clear();
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         return res;
                     }
@@ -160,6 +139,7 @@ namespace AasxPluginAssetInterfaceDescription
                                             NotifyOutputItems(item, item.Value);
                                             res = 1;
                                         }
+                                        values.Clear();
                                     }
                                     else
                                     {
@@ -176,13 +156,13 @@ namespace AasxPluginAssetInterfaceDescription
                                 }
                             }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         return res;
                     }
                 }                    
             }
-            catch (Exception ex) 
+            catch (Exception) 
             {
                 return res;
             }

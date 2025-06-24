@@ -109,6 +109,10 @@ namespace AasxPluginAssetInterfaceDescription
             _dictTechnologyToBitmap = new Dictionary<AidInterfaceTechnology, AnyUiBitmapInfo>();
             if (OperatingSystem.IsWindowsVersionAtLeast(7))
             {
+                _dictTechnologyToBitmap.Add(AidInterfaceTechnology.BACNET,
+                    AnyUiGdiHelper.CreateAnyUiBitmapFromResource(
+                        "AasxPluginAssetInterfaceDesc.Resources.logo-bacnet.png",
+                        assembly: Assembly.GetExecutingAssembly()));
                 _dictTechnologyToBitmap.Add(AidInterfaceTechnology.HTTP,
                 AnyUiGdiHelper.CreateAnyUiBitmapFromResource(
                     "AasxPluginAssetInterfaceDesc.Resources.logo-http.png",
@@ -124,10 +128,6 @@ namespace AasxPluginAssetInterfaceDescription
                 _dictTechnologyToBitmap.Add(AidInterfaceTechnology.OPCUA,
                     AnyUiGdiHelper.CreateAnyUiBitmapFromResource(
                         "AasxPluginAssetInterfaceDesc.Resources.logo-opc-ua.png",
-                        assembly: Assembly.GetExecutingAssembly()));
-                _dictTechnologyToBitmap.Add(AidInterfaceTechnology.BACNET,
-                    AnyUiGdiHelper.CreateAnyUiBitmapFromResource(
-                        "AasxPluginAssetInterfaceDesc.Resources.logo-bacnet.png",
                         assembly: Assembly.GetExecutingAssembly()));
             }
 

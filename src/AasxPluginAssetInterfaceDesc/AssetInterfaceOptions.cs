@@ -24,12 +24,11 @@ namespace AasxPluginAssetInterfaceDescription
     {
         public bool IsDescription = false;
         public bool IsMapping = false;
-
+        public bool UseBacnet = true;
         public bool UseHttp = true;
         public bool UseModbus = true;
         public bool UseMqtt = true;
         public bool UseOpcUa = true;
-        public bool UseBacnet = true;
     }
 
     public class AssetInterfaceOptions : AasxPluginLookupOptionsBase
