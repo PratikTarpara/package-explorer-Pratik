@@ -7,24 +7,25 @@ This source code is licensed under the Apache License 2.0 (see LICENSE.txt).
 This source code may use other Open Source software components (see LICENSE.txt).
 */
 
+using AasxIntegrationBase;
+using AasxIntegrationBaseGdi;
+using AasxPredefinedConcepts;
+using AasxPredefinedConcepts.AssetInterfacesDescription;
+using AdminShellNS;
+using AnyUi;
+using Extensions;
+using FluentModbus;
+using Newtonsoft.Json;
+using Org.BouncyCastle.Asn1.X509;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
-using AasxIntegrationBase;
-using Aas = AasCore.Aas3_0;
-using AdminShellNS;
-using Extensions;
-using AnyUi;
-using Newtonsoft.Json;
-using AasxPredefinedConcepts;
-using AasxPredefinedConcepts.AssetInterfacesDescription;
-using System.Windows.Shapes;
-using AasxIntegrationBaseGdi;
-using FluentModbus;
+using System.Linq;
 using System.Net;
-using Org.BouncyCastle.Asn1.X509;
+using System.Reflection;
+using System.Windows.Shapes;
 using Workstation.ServiceModel.Ua;
+using Aas = AasCore.Aas3_0;
 
 namespace AasxPluginAssetInterfaceDescription
 {
@@ -323,6 +324,13 @@ namespace AasxPluginAssetInterfaceDescription
                             return new AnyUiLambdaActionNone();
                         }
 
+                        // Check if at least one technology is selected
+                        if (!_allInterfaceStatus.UseTech.Any(tech => tech))
+                        {
+                            _log.Info(StoredPrint.Color.Blue, "Please select at least one technology.");
+                            return new AnyUiLambdaActionNone();
+                        }
+                        
                         // build up data structures
                         _allInterfaceStatus.PrepareAidInformation(
                             _allInterfaceStatus.SmAidDescription,
@@ -463,12 +471,17 @@ namespace AasxPluginAssetInterfaceDescription
             // access
             if (interfaces == null)
                 return;
+            
+            // Filter interfaces based on selected technologies
+            var filteredInterfaces = interfaces.Where(ifx =>
+                _allInterfaceStatus.UseTech[(int)ifx.Technology]).ToList();
 
             // ok
             var grid = view.Add(uitk.AddSmallGrid(rows: interfaces.Count, cols: 5,
                 colWidths: new[] { "40:", "1*", "1*", "1*", "180:" }));
             int rowIndex = 0;
-            foreach (var ifx in interfaces)
+
+            foreach (var ifx in filteredInterfaces)
             {
                 //
                 // heading

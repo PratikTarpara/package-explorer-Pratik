@@ -11,6 +11,8 @@ namespace AasxPluginAssetInterfaceDescription
     {
         public BacnetClient Client;
         private Dictionary<uint, BacnetAddress> DeviceAddresses = new Dictionary<uint, BacnetAddress>();
+        public BacnetAddress deviceAddress;
+
         override public async Task<bool> Open()
         {
             try
@@ -24,7 +26,19 @@ namespace AasxPluginAssetInterfaceDescription
                 } 
 
                 Client.Start();
-                
+
+                // Extract device ID from the URI
+                uint deviceId = uint.Parse(TargetUri.Host);
+                if (!DeviceAddresses.ContainsKey(deviceId))
+                {
+                    Client.WhoIs((int)deviceId, (int)deviceId);
+                    await Task.Delay(1000);
+                }
+                if (!DeviceAddresses.TryGetValue(deviceId, out deviceAddress))
+                {
+                    return false;
+                }
+
                 await Task.Yield();
                 return true;
             }
@@ -68,19 +82,6 @@ namespace AasxPluginAssetInterfaceDescription
             }
             try
             {
-                // Extract device ID from the URI
-                uint deviceId = uint.Parse(TargetUri.Host);
-                
-                BacnetAddress deviceAddress;
-                if (!DeviceAddresses.ContainsKey(deviceId))
-                {
-                    Client.WhoIs((int)deviceId, (int)deviceId);
-                    await Task.Delay(1000);
-                }
-                if (!DeviceAddresses.TryGetValue(deviceId, out deviceAddress))
-                {
-                    return res;
-                }
                 
                 var href = item.FormData.Href.TrimStart('/');
                 string[] mainParts = href.Split('/');
