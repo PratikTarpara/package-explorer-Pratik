@@ -491,6 +491,30 @@ namespace AasxPredefinedConcepts.AssetInterfacesDescription
         [AasConcept(Cd = "http://www.w3.org/2022/bacnet#hasDataType", Card = AasxPredefinedCardinality.ZeroToOne)]
         public CD_Bacv_hasDataType Bacv_hasDataType = null;
 
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#method", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string Cov_method;
+
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#confirmable", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string Cov_confirmable;
+
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#minPollingInterval", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string Cov_minPollingInterval;
+
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#blockwise", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public CD_Cov_blockwise Cov_blockwise = new CD_Cov_blockwise();
+
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#qblockwise", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public CD_Cov_qblockwise Cov_qblockwise = new CD_Cov_qblockwise();
+
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#hopLimit", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string Cov_hopLimit;
+
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#contentFormat", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string Cov_contentFormat;
+
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#accept", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string Cov_accept;
+
         // auto-generated informations
         public AasClassMapperInfo __Info__ = null;
     }
@@ -563,6 +587,32 @@ namespace AasxPredefinedConcepts.AssetInterfacesDescription
         public AasClassMapperInfo __Info__ = null;
     }
 
+    [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#blockwise")]
+    public class CD_Cov_blockwise
+    {
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#block1Size", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string Cov_block1Size;
+
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#block2Size", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string Cov_block2Size;
+
+        // auto-generated informations
+        public AasClassMapperInfo __Info__ = null;
+    }
+
+    [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#qblockwise")]
+    public class CD_Cov_qblockwise
+    {
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#block1Size", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string Cov_block1Size;
+
+        [AasConcept(Cd = "https://www.w3.org/2019/wot/coap#block2Size", Card = AasxPredefinedCardinality.ZeroToOne)]
+        public string Cov_block2Size;
+
+        // auto-generated informations
+        public AasClassMapperInfo __Info__ = null;
+    }
+
     [AasConcept(Cd = "https://www.w3.org/2019/wot/td#ActionAffordance")]
     public class CD_Actions
     {
@@ -609,6 +659,10 @@ namespace AasxPredefinedConcepts.AssetInterfacesDescription
         [AasConcept(Cd = "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/Interface", Card = AasxPredefinedCardinality.ZeroToMany,
             SupplSemId = "http://www.w3.org/2022/bacnet")]
         public List<CD_GenericInterface> InterfaceBACNET = new List<CD_GenericInterface>();
+
+        [AasConcept(Cd = "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/Interface", Card = AasxPredefinedCardinality.ZeroToMany,
+            SupplSemId = "https://www.w3.org/2019/wot/coap")]
+        public List<CD_GenericInterface> InterfaceKNXIoT = new List<CD_GenericInterface>();
 
         // auto-generated informations
         public AasClassMapperInfo __Info__ = null;

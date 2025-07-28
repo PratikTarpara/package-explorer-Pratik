@@ -97,7 +97,7 @@ namespace AasxPluginAssetInterfaceDescription
         public AnyUiUIElement RenderedUiElement = null;
     }
 
-    public enum AidInterfaceTechnology { HTTP, Modbus, MQTT, OPCUA, BACNET }
+    public enum AidInterfaceTechnology { HTTP, Modbus, MQTT, OPCUA, BACNET, KNXIoT }
 
     public class AidInterfaceStatus
     {
@@ -451,7 +451,7 @@ namespace AasxPluginAssetInterfaceDescription
         /// <summary>
         /// Current setting, which technologies shall be used.
         /// </summary>
-        public bool[] UseTech = { false, false, false, true, true };
+        public bool[] UseTech = { false, false, false, false, false, true };
 
         /// <summary>
         /// Will hold connections steady and continously update values, either by
@@ -475,6 +475,9 @@ namespace AasxPluginAssetInterfaceDescription
 
         public AidGenericConnections<AidBacnetConnection> BacnetConnections =
             new AidGenericConnections<AidBacnetConnection>();
+
+        public AidGenericConnections<AidKnxiotConnection> KnxiotConnections =
+            new AidGenericConnections<AidKnxiotConnection>();
 
         public AidAllInterfaceStatus(LogInstance log = null)
         {
@@ -507,6 +510,7 @@ namespace AasxPluginAssetInterfaceDescription
                 UseTech[(int)AidInterfaceTechnology.MQTT] = optRec.UseMqtt;
                 UseTech[(int)AidInterfaceTechnology.OPCUA] = optRec.UseOpcUa;
                 UseTech[(int)AidInterfaceTechnology.BACNET] = optRec.UseBacnet;
+                UseTech[(int)AidInterfaceTechnology.KNXIoT] = optRec.UseKnxiot;
             }
         }
 
@@ -546,6 +550,10 @@ namespace AasxPluginAssetInterfaceDescription
 
                 case AidInterfaceTechnology.BACNET:
                     conn = BacnetConnections.GetOrCreate(endpointBase, log);
+                    break;
+
+                case AidInterfaceTechnology.KNXIoT:
+                    conn = KnxiotConnections.GetOrCreate(endpointBase, log);
                     break;
 
             }
@@ -831,6 +839,7 @@ namespace AasxPluginAssetInterfaceDescription
                 if (tech == AidInterfaceTechnology.MQTT) ifxs = dataAid?.InterfaceMQTT;
                 if (tech == AidInterfaceTechnology.OPCUA) ifxs = dataAid?.InterfaceOPCUA;
                 if (tech == AidInterfaceTechnology.BACNET) ifxs = dataAid?.InterfaceBACNET;
+                if (tech == AidInterfaceTechnology.KNXIoT) ifxs = dataAid?.InterfaceKNXIoT;
                 if (ifxs == null || ifxs.Count < 1)
                     continue;
                 foreach (var ifx in ifxs)

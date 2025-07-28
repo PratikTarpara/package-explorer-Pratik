@@ -12,8 +12,9 @@
       "UseHttp": false,
       "UseModbus": false,
       "UseMqtt": false,
-      "UseOpcUa": true,
-      "UseBacnet": true
+      "UseOpcUa": false,
+      "UseBacnet": false,
+      "UseKnxiot": true
     },
     {
       "IsDescription": false,

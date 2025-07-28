@@ -30,6 +30,7 @@ namespace AasxPluginAssetInterfaceDescription
         public bool UseMqtt = true;
         public bool UseOpcUa = true;
         public bool UseBacnet = true;
+        public bool UseKnxiot = true;
     }
 
     public class AssetInterfaceOptions : AasxPluginLookupOptionsBase
