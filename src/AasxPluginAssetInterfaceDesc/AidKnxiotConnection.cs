@@ -1,174 +1,223 @@
-﻿using AdminShellNS;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO.BACnet;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
-using Aas = AasCore.Aas3_0;
+using Makaretu.Dns;
+using CoAP;
+using CoAP.Net;
+using AdminShellNS;
+using AdminShellNS.DiaryData;
+using AasxIntegrationBase;
+using AasxPluginAssetInterfaceDescription;
 
 namespace AasxPluginAssetInterfaceDescription
 {
     public class AidKnxiotConnection : AidBaseConnection
     {
-        public BacnetClient Client1;
-        private Dictionary<uint, BacnetAddress> DeviceAddresses = new Dictionary<uint, BacnetAddress>();
-        public BacnetAddress deviceAddress;
+        public CoAPEndPoint Endpoint;
+        public IPAddress Ipv6Address;
+        public CancellationTokenSource mdnsCts;
 
         override public async Task<bool> Open()
         {
-            try
-            {
-                Client1 = new BacnetClient();
-                Client1.OnIam += OnIamHandler;
+            Endpoint = new CoAPEndPoint();
+            Endpoint.Start();
 
-                if (TimeOutMs >= 10)
-                {
-                    Client1.Timeout = (int)TimeOutMs;
-                }
+            mdnsCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(TimeOutMs > 0 ? TimeOutMs : 1000));
+            Ipv6Address = await ResolveMdnsAsync(TargetUri.Host, mdnsCts.Token);
 
-                Client1.Start();
-
-                // Extract device ID from the URI
-                uint deviceId = uint.Parse(TargetUri.Host);
-                if (!DeviceAddresses.ContainsKey(deviceId))
-                {
-                    Client1.WhoIs((int)deviceId, (int)deviceId);
-                    await Task.Delay(1000);
-                }
-                if (!DeviceAddresses.TryGetValue(deviceId, out deviceAddress))
-                {
-                    return false;
-                }
-
-                await Task.Yield();
-                return true;
-            }
-            catch (Exception)
-            {
-                Client1 = null;
-                return false;
-            }
-        }
-
-        private void OnIamHandler(BacnetClient sender, BacnetAddress adr, uint deviceId, uint maxAPDU, BacnetSegmentations segmentation, ushort vendorId)
-        {
-            // Store the device address from I-Am response
-            DeviceAddresses[deviceId] = adr;
+            await Task.Yield();
+            return true;    
         }
 
         override public bool IsConnected()
         {
-            return Client1 != null;
+            return Endpoint != null;
         }
 
         override public void Close()
         {
-            // Dispose client
-            if (Client1 != null)
+            mdnsCts?.Cancel();
+            mdnsCts?.Dispose();
+            mdnsCts = null;
+
+            if (Endpoint != null)
             {
-                Client1.Dispose();
-                Client1 = null;
+                Endpoint.Stop();
+                Endpoint.Dispose();
+                Endpoint = null;
             }
+            Ipv6Address = null;
         }
 
-        override public int UpdateItemValue(AidIfxItemStatus item)
+        override public async Task<int> UpdateItemValueAsync(AidIfxItemStatus item)
         {
-            int res = 0;
             if (item?.FormData?.Href?.HasContent() != true ||
-                item.FormData.Bacv_useService?.HasContent() != true ||
-                !IsConnected() ||
-                Client1 == null)
+                item?.FormData.Cov_method?.HasContent() != true ||
+                !IsConnected())
+                return 0;
+            int res = 0;
+
+            string coapPath = item.FormData.Href.TrimStart('/');
+            string coapMethod = item.FormData.Cov_method.Trim().ToLower() ?? "get"; 
+            
+            if (coapMethod == "get")
             {
-                return res;
+                try
+                {
+                    string result = await CoapGetAsync(Ipv6Address, coapPath, (int)TimeOutMs);
+                    item.Value = result;
+                    NotifyOutputItems(item, item.Value);
+                    res = 1;
+
+                }
+                catch (Exception)
+                {
+                    return res;
+                }
             }
+            //else if (coapMethod == "put")
+            //   {
+            //       bool putSuccess = await CoapPutAsync(Ipv6Address, coapPath, item.Value, (int)TimeOutMs);
+            //       if (putSuccess)
+            //       {
+            //           item.Value = item.Value;
+            //           NotifyOutputItems(item, item.Value);
+            //           res = 1;
+            //       }
+            //   }
+            return res;
+        }
+         
+        private async Task<string> CoapGetAsync(IPAddress ip, string path, int timeoutMs)
+        {
+            Uri uri = new Uri($"coap://[{ip}]/{path}");
+            var request = new Request(Method.GET)
+            {
+                URI = uri,
+                Type = MessageType.CON
+            };
+            request.EndPoint = Endpoint;
+
+            var tcs = new TaskCompletionSource<Response>();
+            request.Respond += (sender, args) =>
+            {
+                if (args.Response != null)
+                    tcs.TrySetResult(args.Response);
+            };
+
+            request.Send();
+
+            using (var cts = new CancellationTokenSource(timeoutMs))
+            using (cts.Token.Register(() => tcs.TrySetCanceled(), useSynchronizationContext: false))
+            {
+                try
+                {
+                    var response = await tcs.Task;
+                    if (response.StatusCode == CoAP.StatusCode.Content)
+                        return response.PayloadString;
+                    else
+                        throw new Exception($"CoAP GET failed with status code: {response.StatusCode} ({response.Code}) for {uri}");
+                }
+                catch (TaskCanceledException)
+                {
+                    throw new TimeoutException($"CoAP GET request to {uri} timed out after {timeoutMs}ms.");
+                }
+            }
+        }
+  
+        //private async Task<bool> CoapPutAsync(IPAddress ip, string path, string payload, int timeoutMs, int contentFormat = 0)
+        //{
+        //    if (Endpoint == null || !Endpoint.Running)
+        //        throw new InvalidOperationException("CoAP endpoint is not running. Call Open() first.");
+
+        //    Uri uri = new Uri($"coap://[{ip}]:{CoAP.CoapConstants.DefaultPort}/{path}");
+        //    var request = new Request(Method.PUT)
+        //    {
+        //        URI = uri,
+        //        Type = MessageType.CON,
+        //        Payload = System.Text.Encoding.UTF8.GetBytes(payload)
+        //    };
+
+        //    // Universal, works on both Makaretu.Dns.CoAP and CoAP.NET.Core
+        //    request.Options.Add(new Option(CoAP.OptionType.ContentFormat, BitConverter.GetBytes((ushort)contentFormat)));
+        //    // If the above fails, try: request.Options.Add(new Option(CoAP.OptionType.ContentFormat, contentFormat));
+
+        //    request.EndPoint = Endpoint;
+
+        //    var tcs = new TaskCompletionSource<Response>();
+        //    request.Respond += (sender, args) =>
+        //    {
+        //        if (args.Response != null)
+        //            tcs.TrySetResult(args.Response);
+        //        else
+        //            tcs.TrySetException(new Exception("Null CoAP response received."));
+        //    };
+
+        //    request.Send();
+
+        //    using (var cts = new CancellationTokenSource(timeoutMs))
+        //    using (cts.Token.Register(() => tcs.TrySetCanceled(), useSynchronizationContext: false))
+        //    {
+        //        try
+        //        {
+        //            var response = await tcs.Task;
+        //            if (response.StatusCode == CoAP.StatusCode.Changed)
+        //                return true;
+        //            else
+        //                throw new Exception($"CoAP PUT failed with status code: {response.StatusCode} ({response.Code}) for {uri}");
+        //        }
+        //        catch (TaskCanceledException)
+        //        {
+        //            throw new TimeoutException($"CoAP PUT request to {uri} timed out after {timeoutMs}ms.");
+        //        }
+        //    }
+        //}
+
+        private async Task<IPAddress> ResolveMdnsAsync(string hostname, CancellationToken cancellationToken)
+        {
+            var serviceDiscovery = new MulticastService();
+            var tcs = new TaskCompletionSource<IPAddress>();
+
+            serviceDiscovery.AnswerReceived += (s, e) =>
+            {
+                var addressRecord = e.Message.Answers
+                    .OfType<AddressRecord>()
+                    .FirstOrDefault(r =>
+                        r.Name.ToString().TrimEnd('.') == hostname.TrimEnd('.'));
+
+                if (addressRecord != null)
+                {
+                    if (addressRecord.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                        tcs.TrySetResult(addressRecord.Address);
+                    else if (addressRecord.Address.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        if (!tcs.Task.IsCompleted || tcs.Task.Result.AddressFamily != AddressFamily.InterNetworkV6)
+                            tcs.TrySetResult(addressRecord.Address);
+                    }
+                }
+            };
+
+            serviceDiscovery.Start();
+
             try
             {
+                var domainName = new DomainName(hostname);
+                serviceDiscovery.SendQuery(domainName, DnsClass.IN, DnsType.AAAA);
+                serviceDiscovery.SendQuery(domainName, DnsClass.IN, DnsType.A);
 
-                var href = item.FormData.Href.TrimStart('/');
-                string[] mainParts = href.Split('/');
-                string[] objectParts = mainParts[0].Split(',');
-
-                var objectType = (BacnetObjectTypes)int.Parse(objectParts[0]);
-                uint instance = uint.Parse(objectParts[1]);
-                BacnetObjectId objectId = new BacnetObjectId(objectType, instance);
-
-                var propertyId = (BacnetPropertyIds)int.Parse(mainParts[1]);
-
-                // READ operation
-                if (item.FormData.Bacv_useService.Trim().ToLower() == "readproperty")
-                {
-                    try
-                    {
-                        IList<BacnetValue> values_r1 = new List<BacnetValue>();
-                        bool result_r1 = Client1.ReadPropertyRequest(deviceAddress, objectId, propertyId, out values_r1);
-                        if (result_r1 && values_r1.Count > 0 && values_r1[0].Value != null)
-                        {
-                            float val_r1 = (float)values_r1[0].Value;
-                            item.Value = val_r1.ToString("R", CultureInfo.InvariantCulture);
-                            NotifyOutputItems(item, item.Value);
-                            res = 1;
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        return res;
-                    }
-                }
-
-                // WRITE operation
-                else if (item.FormData.Bacv_useService.Trim().ToLower() == "writeproperty")
-                {
-                    try
-                    {
-                        if (item.MapOutputItems != null)
-                            foreach (var moi in item.MapOutputItems)
-                            {
-                                // valid?
-                                if (moi?.MapRelation?.Second == null)
-                                    continue;
-
-                                // For literal payloads
-                                else if (moi.MapRelation.SecondHint is Aas.Property prop)
-                                {
-                                    if (item.Value == "" || prop.Value == item.Value)
-                                    {
-                                        IList<BacnetValue> values_r2 = new List<BacnetValue>();
-                                        bool result_r2 = Client1.ReadPropertyRequest(deviceAddress, objectId, propertyId, out values_r2);
-                                        if (result_r2 && values_r2.Count > 0 && values_r2[0].Value != null && prop.Value == item.Value)
-                                        {
-                                            float val_r2 = (float)values_r2[0].Value;
-                                            item.Value = val_r2.ToString("R", CultureInfo.InvariantCulture);
-                                            NotifyOutputItems(item, item.Value);
-                                            res = 1;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        float staticValue = float.Parse(prop.Value, CultureInfo.InvariantCulture);
-                                        BacnetValue[] values_w = new BacnetValue[] { new BacnetValue(staticValue) };
-                                        bool result_w = Client1.WritePropertyRequest(deviceAddress, objectId, propertyId, values_w);
-                                        if (result_w)
-                                        {
-                                            float val_r3 = (float)values_w[0].Value;
-                                            item.Value = val_r3.ToString("R", CultureInfo.InvariantCulture);
-                                            NotifyOutputItems(item, item.Value);
-                                            res = 1;
-                                        }
-                                    }
-                                }
-                            }
-                    }
-                    catch (Exception)
-                    {
-                        return res;
-                    }
-                }
+                var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(Timeout.Infinite, cancellationToken));
+                if (completedTask == tcs.Task)
+                    return tcs.Task.Result;
+                else
+                    cancellationToken.ThrowIfCancellationRequested();
+                return null;
             }
-            catch (Exception)
-            {
-                return res;
-            }
-            return res;
+            catch (OperationCanceledException) { throw; }
+            finally { serviceDiscovery.Stop(); }
         }
     }
 }

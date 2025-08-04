@@ -20,6 +20,8 @@
     <PackageTags>aas;asset administration shell;iiot;industry internet of things;industrie 4.0;i4.0</PackageTags>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Makaretu.Dns" Version="2.0.1" />
+    <PackageReference Include="Makaretu.Dns.Multicast" Version="0.27.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 </Project>
