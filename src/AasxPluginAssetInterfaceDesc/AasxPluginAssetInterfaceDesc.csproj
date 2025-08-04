@@ -15,6 +15,7 @@
     <None Remove="Resources\logo-modbus.png" />
     <None Remove="Resources\logo-mqtt.png" />
     <None Remove="Resources\logo-opc-ua.png" />
+	<None Remove="Resources\logo-bacnet.png" />
 	<None Remove="Resources\logo-knxiot.png" />  
   </ItemGroup>
   <ItemGroup>

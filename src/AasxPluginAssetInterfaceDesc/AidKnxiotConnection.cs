@@ -35,7 +35,7 @@ namespace AasxPluginAssetInterfaceDescription
 
         override public bool IsConnected()
         {
-            return Endpoint != null;
+            return Endpoint != null && Endpoint.Running && Ipv6Address != null;
         }
 
         override public void Close()
