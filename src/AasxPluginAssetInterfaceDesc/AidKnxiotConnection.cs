@@ -1,17 +1,19 @@
-﻿using System;
+﻿using AasxIntegrationBase;
+using AasxPluginAssetInterfaceDescription;
+using AdminShellNS;
+using AdminShellNS.DiaryData;
+using CoAP;
+using CoAP.Net;
+using Makaretu.Dns;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using Makaretu.Dns;
-using CoAP;
-using CoAP.Net;
-using AdminShellNS;
-using AdminShellNS.DiaryData;
-using AasxIntegrationBase;
-using AasxPluginAssetInterfaceDescription;
+using Aas = AasCore.Aas3_0;
 
 namespace AasxPluginAssetInterfaceDescription
 {
@@ -55,20 +57,30 @@ namespace AasxPluginAssetInterfaceDescription
 
         override public async Task<int> UpdateItemValueAsync(AidIfxItemStatus item)
         {
+            int res = 0;
             if (item?.FormData?.Href?.HasContent() != true ||
                 item?.FormData.Cov_method?.HasContent() != true ||
-                !IsConnected())
-                return 0;
-            int res = 0;
+                !IsConnected() ||
+                Endpoint == null)
+            {
+                return res;
+            }
+           
+            var coapPath = item.FormData.Href.TrimStart('/');
+            int contentFormat = 0;
+            string coapContentFormat = item.FormData.Cov_contentFormat?.Trim();
+            if (coapContentFormat != null)
+            {
+                contentFormat = int.Parse(coapContentFormat);
+            }
 
-            string coapPath = item.FormData.Href.TrimStart('/');
-            string coapMethod = item.FormData.Cov_method.Trim().ToLower() ?? "get"; 
-            
-            if (coapMethod == "get")
+
+            if (item.FormData.Cov_method.Trim().ToLower() == "get")
             {
                 try
                 {
-                    string result = await CoapGetAsync(Ipv6Address, coapPath, (int)TimeOutMs);
+                    var TimeOut1Ms = 1000;
+                    string result = await CoapGetAsync(Ipv6Address, coapPath, (int)TimeOut1Ms);
                     item.Value = result;
                     NotifyOutputItems(item, item.Value);
                     res = 1;
@@ -79,16 +91,52 @@ namespace AasxPluginAssetInterfaceDescription
                     return res;
                 }
             }
-            //else if (coapMethod == "put")
-            //   {
-            //       bool putSuccess = await CoapPutAsync(Ipv6Address, coapPath, item.Value, (int)TimeOutMs);
-            //       if (putSuccess)
-            //       {
-            //           item.Value = item.Value;
-            //           NotifyOutputItems(item, item.Value);
-            //           res = 1;
-            //       }
-            //   }
+            else if (item.FormData.Cov_method.Trim().ToLower() == "put")
+            {
+                try
+                {
+                    if (item.MapOutputItems != null)
+                        foreach (var moi in item.MapOutputItems)
+                        {
+                            // valid?
+                            if (moi?.MapRelation?.Second == null)
+                                continue;
+
+                            // For literal payloads
+                            else if (moi.MapRelation.SecondHint is Aas.Property prop)
+                            {
+                                if (item.Value == "" || prop.Value == item.Value)
+                                {
+                                    var TimeOut2Ms = 1000;
+                                    string result = await CoapGetAsync(Ipv6Address, coapPath, (int)TimeOut2Ms);
+                                    if (result != null)
+                                    {
+                                        item.Value = result;
+                                        NotifyOutputItems(item, item.Value);
+                                        res = 1;
+                                    }
+                                }
+                                else
+                                {
+                                    float staticValue = float.Parse(prop.Value, CultureInfo.InvariantCulture);
+                                    string requestedValue = staticValue.ToString("R", CultureInfo.InvariantCulture);
+                                    var TimeOut3Ms = 1000;
+                                    bool putSuccess = await CoapPutAsync(Ipv6Address, coapPath, requestedValue, (int)TimeOut3Ms, contentFormat);
+                                    if (putSuccess)
+                                    {
+                                        item.Value = requestedValue;
+                                        NotifyOutputItems(item, item.Value);
+                                        res = 1;
+                                    }
+                                }
+                            }
+                        }
+                }
+                catch (Exception)
+                {
+                    return res;
+                }
+            }
             return res;
         }
          
@@ -128,60 +176,57 @@ namespace AasxPluginAssetInterfaceDescription
                 }
             }
         }
-  
-        //private async Task<bool> CoapPutAsync(IPAddress ip, string path, string payload, int timeoutMs, int contentFormat = 0)
-        //{
-        //    if (Endpoint == null || !Endpoint.Running)
-        //        throw new InvalidOperationException("CoAP endpoint is not running. Call Open() first.");
 
-        //    Uri uri = new Uri($"coap://[{ip}]:{CoAP.CoapConstants.DefaultPort}/{path}");
-        //    var request = new Request(Method.PUT)
-        //    {
-        //        URI = uri,
-        //        Type = MessageType.CON,
-        //        Payload = System.Text.Encoding.UTF8.GetBytes(payload)
-        //    };
+        private async Task<bool> CoapPutAsync(IPAddress ip, string path, string payload, int timeoutMs, int contentFormat = 0)
+        {
+            Uri uri = new Uri($"coap://[{ip}]/{path}");
+            string jsonPayload = $"{{\"value\": {payload}}}";
+            byte[] payloadBytes = System.Text.Encoding.UTF8.GetBytes(jsonPayload);
 
-        //    // Universal, works on both Makaretu.Dns.CoAP and CoAP.NET.Core
-        //    request.Options.Add(new Option(CoAP.OptionType.ContentFormat, BitConverter.GetBytes((ushort)contentFormat)));
-        //    // If the above fails, try: request.Options.Add(new Option(CoAP.OptionType.ContentFormat, contentFormat));
+            var request = new Request(Method.PUT)
+            {
+                URI = uri,
+                Type = MessageType.CON,
+                Payload = payloadBytes,
+                ContentFormat = contentFormat
+            };
+                    
+            request.EndPoint = Endpoint;
 
-        //    request.EndPoint = Endpoint;
+            var tcs = new TaskCompletionSource<Response>();
+            request.Respond += (sender, args) =>
+            {
+                if (args.Response != null)
+                    tcs.TrySetResult(args.Response);
+                else
+                    tcs.TrySetException(new Exception("Null CoAP response received."));
+            };
 
-        //    var tcs = new TaskCompletionSource<Response>();
-        //    request.Respond += (sender, args) =>
-        //    {
-        //        if (args.Response != null)
-        //            tcs.TrySetResult(args.Response);
-        //        else
-        //            tcs.TrySetException(new Exception("Null CoAP response received."));
-        //    };
+            request.Send();
 
-        //    request.Send();
-
-        //    using (var cts = new CancellationTokenSource(timeoutMs))
-        //    using (cts.Token.Register(() => tcs.TrySetCanceled(), useSynchronizationContext: false))
-        //    {
-        //        try
-        //        {
-        //            var response = await tcs.Task;
-        //            if (response.StatusCode == CoAP.StatusCode.Changed)
-        //                return true;
-        //            else
-        //                throw new Exception($"CoAP PUT failed with status code: {response.StatusCode} ({response.Code}) for {uri}");
-        //        }
-        //        catch (TaskCanceledException)
-        //        {
-        //            throw new TimeoutException($"CoAP PUT request to {uri} timed out after {timeoutMs}ms.");
-        //        }
-        //    }
-        //}
+            using (var cts = new CancellationTokenSource(timeoutMs))
+            using (cts.Token.Register(() => tcs.TrySetCanceled(), useSynchronizationContext: false))
+            {
+                try
+                {
+                    var response = await tcs.Task;
+                    if (response.StatusCode == CoAP.StatusCode.Changed)
+                        return true;
+                    else
+                        throw new Exception($"CoAP PUT failed with status code: {response.StatusCode} ({response.Code}) for {uri}");
+                }
+                catch (TaskCanceledException)
+                {
+                    throw new TimeoutException($"CoAP PUT request to {uri} timed out after {timeoutMs}ms.");
+                }
+            }
+        }
 
         private async Task<IPAddress> ResolveMdnsAsync(string hostname, CancellationToken cancellationToken)
         {
             var serviceDiscovery = new MulticastService();
             var tcs = new TaskCompletionSource<IPAddress>();
-
+             
             serviceDiscovery.AnswerReceived += (s, e) =>
             {
                 var addressRecord = e.Message.Answers
